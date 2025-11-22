@@ -1,6 +1,5 @@
 package com.example.android_tv_my
 
-import android.app.admin.DeviceAdminReceiver
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
@@ -20,19 +19,14 @@ import java.io.ByteArrayOutputStream
 class MainActivity : FlutterActivity() {
 
     private val CHANNEL = "tv_apps_channel"
-    private lateinit var devicePolicyManager: DevicePolicyManager
-    private lateinit var componentName: ComponentName
+    private lateinit var dpm: DevicePolicyManager
+    private lateinit var compName: ComponentName
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        devicePolicyManager = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-        componentName = ComponentName(this, DeviceAdminReceiver::class.java)
 
-        // Lock task mode-ni yoqish
-        if (devicePolicyManager.isDeviceOwnerApp(packageName)) {
-            devicePolicyManager.setLockTaskPackages(componentName, arrayOf(packageName))
-            startLockTask()
-        }
+        dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        compName = ComponentName(this, DeviceAdminReceiver::class.java)
 
         MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
@@ -49,6 +43,44 @@ class MainActivity : FlutterActivity() {
                             result.success(launched)
                         } else {
                             result.error("INVALID_ARGUMENT", "Package name is null", null)
+                        }
+                    }
+
+                    "isDeviceOwner" -> {
+                        val isOwner = dpm.isDeviceOwnerApp(packageName)
+                        result.success(isOwner)
+                    }
+
+                    "setLockPackages" -> {
+                        val packages =
+                            call.argument<List<String>>("packages") ?: listOf(packageName)
+                        try {
+                            if (dpm.isDeviceOwnerApp(packageName)) {
+                                dpm.setLockTaskPackages(compName, packages.toTypedArray())
+                                result.success(true)
+                            } else {
+                                result.error("NOT_DEVICE_OWNER", "App is not device owner", null)
+                            }
+                        } catch (e: Exception) {
+                            result.error("ERROR", e.message, null)
+                        }
+                    }
+
+                    "startLockTask" -> {
+                        try {
+                            this.startLockTask()
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("ERROR", e.message, null)
+                        }
+                    }
+
+                    "stopLockTask" -> {
+                        try {
+                            this.stopLockTask()
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("ERROR", e.message, null)
                         }
                     }
 

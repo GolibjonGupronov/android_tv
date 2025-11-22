@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../../../data/services/kiosk_service.dart';
 import 'home_event.dart';
 import 'home_state.dart';
 
@@ -41,12 +42,14 @@ class HomeBloc extends Bloc<HomeEvent, BaseState> {
 
   Future<void> _loadData(Emitter<BaseState> emit) async {
     emit(ShowLoadingState(true));
-
     try {
+      PackageInfo packageInfo = await PackageInfo.fromPlatform();
+      String appName = packageInfo.appName;
+
       final response = await _getTvApps();
       emit(ShowLoadingState(false));
       if (response.isNotEmpty) {
-        tvAppsList = response;
+        tvAppsList = response.where((app) => app.name != appName).toList();
         emit(SuccessLoadState());
       }
     } catch (e) {
@@ -57,14 +60,10 @@ class HomeBloc extends Bloc<HomeEvent, BaseState> {
 
   static Future<List<TvAppModel>> _getTvApps() async {
     try {
-      PackageInfo packageInfo = await PackageInfo.fromPlatform();
-      String appName = packageInfo.appName;
-
       final List<dynamic> rawApps = await _channel.invokeMethod('getTvApps');
-      return rawApps
-          .map((e) => TvAppModel.fromJson((e as Map).cast<String, dynamic>()))
-          .where((app) => app.name != appName)
-          .toList();
+      var list = rawApps.map((e) => TvAppModel.fromJson((e as Map).cast<String, dynamic>())).toList();
+      await _setLockPackages(list);
+      return list;
     } catch (e) {
       debugPrint("$e");
       throw Exception("TV apps fetch error: $e");
@@ -124,6 +123,13 @@ class HomeBloc extends Bloc<HomeEvent, BaseState> {
       emit(ShowErrorMessage("Error opening app: $e"));
     }
   }
+}
+
+Future<void> _setLockPackages(List<TvAppModel> list) async {
+  final isOwner = await KioskService.isDeviceOwner();
+  if (isOwner) {
+    await KioskService.setLockPackages(list.map((e) => e.package).toList());
+  } else {}
 }
 
 List<WeatherModel> _parseWeather(dynamic json) {

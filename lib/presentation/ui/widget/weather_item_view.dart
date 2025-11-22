@@ -45,7 +45,7 @@ class _WeatherItemViewState extends State<WeatherItemView> {
       focusNode: _focusNode,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent &&
-            (event.logicalKey == LogicalKeyboardKey.select || event.logicalKey == LogicalKeyboardKey.enter)) {
+            (event.logicalKey == LogicalKeyboardKey.select || event.logicalKey == LogicalKeyboardKey.home)) {
           // widget.onTap();
           return KeyEventResult.handled;
         }
